@@ -9,7 +9,7 @@ const cors = require("cors");
 
 
 const app = express()
-// const routes = require('./Routes/index')
+const routes = require('./routes/index')
 
 app.use(express.json({
     limit: '100mb'
@@ -39,6 +39,6 @@ app.use(mongoSanitize());
 
 app.use(xss());
 
-// app.use(routes);
+app.use(routes);
 
 module.exports = app;
