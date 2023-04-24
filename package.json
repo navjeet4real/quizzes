@@ -1,0 +1,32 @@
+{
+    "name": "quizzes-backend",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+      "server": "nodemon server.js",
+      "frontend": "cd frontend && npm run start",
+      "dev": "concurrently \"npm run server\" \"npm run frontend\""
+    },
+    "keywords": [],
+    "author": "wojtek",
+    "license": "ISC",
+    "dependencies": {
+      "bcrypt": "^5.1.0",
+      "body-parser": "^1.20.1",
+      "cookie-parser": "^1.4.6",
+      "cookie-session": "^2.0.0",
+      "cors": "^2.8.5",
+      "dotenv": "^16.0.3",
+      "express": "^4.18.2",
+      "express-mongo-sanitize": "^2.2.0",
+      "express-rate-limit": "^6.7.0",
+      "helmet": "^6.0.1",
+      "moment": "^2.29.4",
+      "mongoose": "^6.9.0",
+      "morgan": "^1.10.0",
+      "nodemon": "^2.0.20",
+      "xss-clean": "^0.1.1"
+    }
+  }
+  
