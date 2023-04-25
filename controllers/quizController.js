@@ -1,80 +1,112 @@
 const Quiz = require("../models/quiz");
 const filterObj = require("../utils/filterObj");
-const cron = require('node-cron');
+const cron = require("node-cron");
 
 const quizController = {
   create: async (req, res) => {
-   try {
-    const { question, options, rightAnswer, startDate, endDate } = req.body;
+    try {
+      const { question } = req.body;
 
-    const filterBody = filterObj(
-      req.body,
-      "question",
-      "options",
-      "rightAnswer",
-      "startDate",
-      "endDate"
-    );
+      const filterBody = filterObj(
+        req.body,
+        "question",
+        "options",
+        "rightAnswer",
+        "startDate",
+        "endDate"
+      );
 
-    const existing_quiz = await Quiz.findOne({ question: question });
+      const existing_quiz = await Quiz.findOne({ question: question });
 
-    if (existing_quiz) {
-      return res.status(400).json({
-        status: "error",
-        message: "Quiz already Exist. Change your question.",
-      });
-    } else {
-      const new_quiz = await Quiz.create(filterBody);
-      return res.status(400).json({
-        status: "Success",
-        message: "Quiz has been Created.",
-        quiz: new_quiz,
-      });
+      if (existing_quiz) {
+        return res.status(400).json({
+          status: "error",
+          message: "Quiz already Exist. Change your question.",
+        });
+      } else {
+        const new_quiz = await Quiz.create(filterBody);
+        return res.status(200).json({
+          status: "Success",
+          message: "Quiz has been Created.",
+          quiz: new_quiz,
+        });
+      }
+    } catch (err) {
+      return res.status(500).json({ msg: err.message });
     }
-   } catch (error) {
-    res.status(500).send('An error occurred while creating quiz');
-   }
   },
   getActive: async (req, res) => {
-    const currentDate = new Date();
+    try {
+      const currentDate = new Date();
+      console.log(currentDate, "kkkkkk")
+      const activeQuizzes = await Quiz.find({
+        startDateTime: { $lte: currentDate },
+        endDateTime: { $gte: currentDate },
+      });
 
-    const activeQuizzes = await Quiz.find({
-      startDateTime: { $lte: currentDate },
-      endDateTime: { $gte: currentDate },
-    });
-
-    return res.status(400).json({
+      return res.status(200).json({
         status: "Success",
         message: "Quiz has been Created.",
         quiz: activeQuizzes,
       });
-
+    } catch (err) {
+      return res.status(500).json({ msg: err.message });
+    }
   },
   getResultById: async (req, res) => {
-    const {id} = req.params
+    try {
+      const quizId = req.params.id;
+      const currentTime = new Date();
 
-    const quiz = await Quiz.findOne({_id: id}).select("question options rightAnswer")
+      const quiz = await Quiz.findById(quizId).select(
+        "question options rightAnswer startDate endDate"
+      );
+      const endTime = new Date(quiz.endDate);
+      if (!quiz) {
+        return res.status(404).send({ message: "Quiz not found" });
+      } else if (quiz.status !== "finished") {
+        const timeRemaining = (endTime - currentTime) / 1000; // in seconds
+        res
+          .status(400)
+          .send(
+            `Quiz result not available yet. Please try again in ${timeRemaining} seconds.`
+          );
+      } else {
+        endTime.setMinutes(endTime.getMinutes() + 5); // add 5 minutes to the end time
 
-    const quizIndex = quiz.rightAnswer
-    const quizOptions = quiz.options
-
-    const result = quizOptions[quizIndex]
-
-    return res.status(400).json({
-      status: "Success",
-      message: "Result has been fetched.",
-      quiz: quiz,
-      result: result
-    });
+        if (currentTime >= endTime) {
+          return res.status(200).json({
+            status: "Success",
+            message: "Result has been fetched.",
+            quiz: quiz,
+            result: quiz.options[quiz.rightAnswer],
+          });
+        } else {
+          res.status(400).send("Quiz result not available yet");
+        }
+      }
+    } catch (err) {
+      return res.status(500).json({ msg: err.message });
+    }
   },
   getAll: async (req, res) => {
-    const allQuizzes = await Quiz.find()
+    try {
+      const allQuizzes = await Quiz.find();
 
-    return res.status(400).json({
-      status: "Success",
-      message: "Result has been fetched.",
-      allQuizzes : allQuizzes
-    });
+      if(!allQuizzes){
+        return res.status(400).json({
+          status: "Error",
+          message: "There are no quizzes. Go create one.",
+        });
+      }
+      return res.status(200).json({
+        status: "Success",
+        message: "Result has been fetched.",
+        allQuizzes: allQuizzes,
+      });
+    } catch (err) {
+      return res.status(500).json({ msg: err.message });
+    }
   },
   updateStatus: async (req, res) => {
     try {
@@ -84,23 +116,21 @@ const quizController = {
       });
       quizzes.forEach(async (quiz) => {
         if (quiz.startDate > currentTime) {
-          quiz.status = 'inactive';
+          quiz.status = "inactive";
         } else if (quiz.endDate > currentTime) {
-          quiz.status = 'active';
+          quiz.status = "active";
         } else {
-          quiz.status = 'finished';
+          quiz.status = "finished";
         }
         await quiz.save();
       });
-      res.status(200).send('Quiz status updated successfully');
-    } catch (error) {
-      console.error(error);
-      res.status(500).send('An error occurred while updating quiz status');
+      res.status(200).send("Quiz status updated successfully");
+    } catch (err) {
+      return res.status(500).json({ msg: err.message });
     }
-  }
+  },
 };
 
-
-cron.schedule('* * * * *', updateQuizStatus);
+// cron.schedule("* * * * *", updateQuizStatus);
 
 module.exports = quizController;
