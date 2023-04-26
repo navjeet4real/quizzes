@@ -23,15 +23,14 @@ app.use(cors({
     methods: ["GET", "PATCH", "POST", "DELETE", "PUT"],
     credentials: true,
 }));
-// if (process.env.NODE_ENV === 'development') {
-//     app.use(morgan('dev'))
-// }
+
+// the time window is one hour 
 const limiter = rateLimit({
     max: 3000,
     windowMs: 60 * 60 * 1000,
     message: 'Too many request from this IP, Come again in an hour.'
 })
-app.use('/reazy', limiter);
+app.use('/quizzes', limiter);
 app.use(express.urlencoded({
     extended: true,
 }))

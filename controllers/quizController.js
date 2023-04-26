@@ -97,7 +97,6 @@ const quizController = {
         cache[quizId] &&
         (currentTime - cache[quizId].timestamp) / 1000 < CACHE_EXPIRATION_TIME
       ) {
-        console.log(`Retrieving quiz result for ID "${quizId}" from cache`);
         return res.status(200).json({
           status: "Success",
           message: "Result has been fetched from cache.",
@@ -154,7 +153,6 @@ const quizController = {
         (currentTime - cache["allQuizzes"].timestamp) / 1000 <
           CACHE_EXPIRATION_TIME
       ) {
-        console.log("Retrieving quiz list from cache");
         return res.status(200).json({
           status: "Success",
           message: "Quiz list has been fetched from cache.",
