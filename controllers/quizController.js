@@ -1,6 +1,11 @@
 const Quiz = require("../models/quiz");
 const filterObj = require("../utils/filterObj");
 
+// Create an object to use as a cache
+const cache = {};
+// Set cache expiration time in seconds
+const CACHE_EXPIRATION_TIME = 60; // 1 minute
+
 const quizController = {
   // to create a new quiz
   create: async (req, res) => {
@@ -39,10 +44,24 @@ const quizController = {
   // to retrieve the active quiz (the quiz that is currently within its start and end time)
   getActive: async (req, res) => {
     try {
-      const currentDate = new Date();
+      const currentTime = new Date();
+      // Check if the active quiz list is already in the cache and not expired
+      if (
+        cache["activeQuizzes"] &&
+        (new Date() - cache["activeQuizzes"].timestamp) / 1000 <
+          CACHE_EXPIRATION_TIME
+      ) {
+        console.log("Retrieving active quiz list from cache");
+        return res.status(200).json({
+          status: "Success",
+          message: "Active quiz list has been fetched from cache.",
+          quiz: cache["activeQuizzes"].data,
+        });
+      }
+
       const activeQuizzes = await Quiz.find({
-        startDateTime: { $lte: currentDate },
-        endDateTime: { $gte: currentDate },
+        startDateTime: { $lte: currentTime },
+        endDateTime: { $gte: currentTime },
         status: "active",
       });
 
@@ -52,7 +71,11 @@ const quizController = {
           message: "Not a single Quiz is active to participate.",
         });
       }
-
+      // Store the active quiz list in the cache for future requests
+      cache["activeQuizzes"] = {
+        data: activeQuizzes,
+        timestamp: currentTime,
+      };
       return res.status(200).json({
         status: "Success",
         message: "All the active quizzes now.",
@@ -69,32 +92,52 @@ const quizController = {
       const quizId = req.params.id;
       const currentTime = new Date();
 
+      // Check if the quiz result is already in the cache
+      if (
+        cache[quizId] &&
+        (currentTime - cache[quizId].timestamp) / 1000 < CACHE_EXPIRATION_TIME
+      ) {
+        console.log(`Retrieving quiz result for ID "${quizId}" from cache`);
+        return res.status(200).json({
+          status: "Success",
+          message: "Result has been fetched from cache.",
+          quiz: cache[quizId].quiz,
+          result: cache[quizId].result,
+        });
+      }
+
       const quiz = await Quiz.findById(quizId).select(
         "question options rightAnswer startDate endDate status"
       );
-      const endTime = new Date(quiz.endDate);
       if (!quiz) {
         return res.status(404).send({ message: "Quiz not found" });
-      } else if (quiz.status !== "finished") {
+      }
+
+      const endTime = new Date(quiz.endDate);
+      if (quiz.status !== "finished") {
         const timeRemaining = (endTime - currentTime) / 1000; // in seconds
         return res.status(400).json({
           status: "Success",
           message: `Quiz result not available yet. Please try again in ${timeRemaining} seconds.`,
         });
-      } else {
-        endTime.setMinutes(endTime.getMinutes() + 5); // add 5 minutes to the end time
-
-        if (currentTime >= endTime) {
-          return res.status(200).json({
-            status: "Success",
-            message: "Result has been fetched.",
-            quiz: quiz,
-            result: quiz.options[quiz.rightAnswer],
-          });
-        } else {
-          res.status(400).send("Quiz result not available yet");
-        }
       }
+
+      endTime.setMinutes(endTime.getMinutes() + 5); // add 5 minutes to the end time
+
+      const quizResult = quiz.options[quiz.rightAnswer];
+      // Store the quiz result in the cache for future requests once it is finished
+      cache[quizId] = {
+        quiz: quiz,
+        result: quizResult,
+        timestamp: currentTime, // add timestamp to cache entry
+      };
+
+      return res.status(200).json({
+        status: "Success",
+        message: "Result has been fetched.",
+        quiz: quiz,
+        result: quizResult,
+      });
     } catch (err) {
       return res.status(500).json({ msg: err.message });
     }
@@ -103,6 +146,21 @@ const quizController = {
   // to retrieve the all quizes
   getAll: async (req, res) => {
     try {
+      const currentTime = new Date();
+
+      // Check if the quiz list is already in the cache and not expired
+      if (
+        cache["allQuizzes"] &&
+        (currentTime - cache["allQuizzes"].timestamp) / 1000 <
+          CACHE_EXPIRATION_TIME
+      ) {
+        console.log("Retrieving quiz list from cache");
+        return res.status(200).json({
+          status: "Success",
+          message: "Quiz list has been fetched from cache.",
+          allQuizzes: cache["allQuizzes"].data,
+        });
+      }
       const allQuizzes = await Quiz.find();
 
       if (!allQuizzes) {
@@ -111,6 +169,12 @@ const quizController = {
           message: "There are no quizzes. Go create one.",
         });
       }
+      // Store the quiz list in the cache for future requests
+      cache["allQuizzes"] = {
+        data: allQuizzes,
+        timestamp: currentTime,
+      };
+
       return res.status(200).json({
         status: "Success",
         message: "Result has been fetched.",
@@ -142,7 +206,5 @@ const quizController = {
     }
   },
 };
-
-
 
 module.exports = quizController;
